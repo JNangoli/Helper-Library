@@ -18,6 +18,7 @@ import { Engine } from '../smart/engine';
 import { createImagePipeline } from '../image/pipeline';
 import { createImageLoader } from '../image/imageLoader';
 import { useAsyncAction, useLatestTask, useNearScreen } from './hooks';
+import { autoNative, isLite } from '../core/auto';
 
 const EMPTY = new Uint32Array(0);
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -65,6 +66,7 @@ export function createNativeCompute({ prewarm = true, ...poolOptions }) {
 
     useEffect(() => {
       clearTimeout(disposeTimer.current); // StrictMode remount: keep workers alive
+      autoNative();
       let alive = true;
       detectCapabilities().then((c) => alive && setCaps(c));
       const cancelIdle = prewarm ? whenIdle(() => pool.prewarm()) : noop;
@@ -204,10 +206,12 @@ export function createNativeCompute({ prewarm = true, ...poolOptions }) {
   }
 
   /** <FastImage src={urlOrFile} width={240} height={160} alt="" fit="cover" /> */
-  function FastImage({ src, width, height, alt = '', fit = 'cover', className, style, ...rest }) {
+  function FastImage({ src, width, height, alt, fit = 'cover', className, style, ...rest }) {
     const image = useFastImage(src, { width, height, fit });
-    const [shown, setShown] = useState(false);
-    useEffect(() => setShown(false), [image.src]);
+    // 'waiting' -> 'fading' (image loaded, fading in over the placeholder) -> 'done'
+    const [phase, setPhase] = useState('waiting');
+    useEffect(() => setPhase('waiting'), [image.src]);
+    const instant = image.cached || reducedMotion();
     const fill = { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: fit };
     return (
       <div
@@ -215,12 +219,13 @@ export function createNativeCompute({ prewarm = true, ...poolOptions }) {
         className={className}
         style={{ position: 'relative', overflow: 'hidden', aspectRatio: `${width} / ${height}`, ...style }}
       >
-        {image.placeholder && (
+        {/* The blurred placeholder is removed once the fade ends: a covered blur still costs GPU time. */}
+        {image.placeholder && phase !== 'done' && !instant && (
           <img
             src={image.placeholder}
             alt=""
             aria-hidden="true"
-            style={{ ...fill, filter: 'blur(12px)', transform: 'scale(1.08)' }}
+            style={isLite() ? fill : { ...fill, filter: 'blur(12px)', transform: 'scale(1.08)' }}
           />
         )}
         {image.src && (
@@ -228,11 +233,12 @@ export function createNativeCompute({ prewarm = true, ...poolOptions }) {
             src={image.src}
             alt={alt}
             decoding="async"
-            onLoad={() => setShown(true)}
+            onLoad={() => setPhase(instant ? 'done' : 'fading')}
+            onTransitionEnd={() => setPhase('done')}
             style={{
               ...fill,
-              opacity: shown || image.cached ? 1 : 0,
-              transition: reducedMotion() ? undefined : 'opacity 200ms ease-out',
+              opacity: phase === 'waiting' && !instant ? 0 : 1,
+              transition: instant ? undefined : 'opacity 200ms ease-out', // opacity only: stays on the GPU
             }}
             {...rest}
           />

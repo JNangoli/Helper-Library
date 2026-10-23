@@ -6,6 +6,7 @@ import { useElementSize } from './hooks';
 export function VirtualList({ count, rowHeight, height = 480, overscan = 8, renderRow, className, style, ...rest }) {
   const [ref, size] = useElementSize();
   const [scrollTop, setScrollTop] = useState(0);
+  const [focused, setFocused] = useState(-1); // a row with keyboard focus stays rendered, so focus isn't lost
   const frame = useRef(0);
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
@@ -21,29 +22,39 @@ export function VirtualList({ count, rowHeight, height = 480, overscan = 8, rend
   const viewport = size.height || height;
   const first = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
   const last = Math.min(count, Math.ceil((scrollTop + viewport) / rowHeight) + overscan);
-  const items = [];
-  for (let i = first; i < last; i++) {
-    items.push(
-      <div
-        key={i}
-        role="listitem"
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          height: rowHeight,
-          transform: `translateY(${i * rowHeight}px)`,
-        }}
-      >
-        {renderRow(i)}
-      </div>,
-    );
-  }
+  const indices = [];
+  for (let i = first; i < last; i++) indices.push(i);
+  if (focused >= 0 && focused < count && (focused < first || focused >= last)) indices.push(focused);
+  const items = indices.map((i) => (
+    <div
+      key={i}
+      role="listitem"
+      data-index={i}
+      aria-setsize={count}
+      aria-posinset={i + 1}
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: rowHeight,
+        transform: `translateY(${i * rowHeight}px)`,
+      }}
+    >
+      {renderRow(i)}
+    </div>
+  ));
 
   return (
     <div
       ref={ref}
       onScroll={onScroll}
+      onFocus={(e) => {
+        const row = e.target.closest?.('[data-index]');
+        setFocused(row ? Number(row.dataset.index) : -1);
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setFocused(-1);
+      }}
       tabIndex={0}
       className={className}
       style={{

@@ -25,3 +25,28 @@ export { clearThumbnailCache } from './image/imageLoader';
 export { createNativeCompute } from './react/createNativeCompute';
 export { VirtualList } from './react/VirtualList';
 export { useLatestTask, useAsyncAction, useNearScreen, useElementSize } from './react/hooks';
+export { useWillChange, LazySection, auditGpuCss, useGpuCssAudit } from './react/gpuCss';
+
+// Navigation
+export {
+  Router,
+  lazy,
+  useRouter,
+  useLocation,
+  useParams,
+  useLoaderData,
+  useNavigation,
+  useHead,
+  loadRoute,
+  routeHead,
+} from './router/router';
+export { buildHead, headToHtml, applyHead, serializeData } from './router/head.mjs';
+export { Link, NavigationProgress, DelayedIndicator, useDelayedFlag } from './router/ui';
+export { registerServiceWorker, unregisterServiceWorker } from './addons/registerServiceWorker';
+export { Sheet, Carousel } from './react/native';
+
+// Automatic native feel, accessibility and fallbacks (started by the Provider and Router)
+export { autoNative, stopAutoNative, isLite } from './core/auto';
+export { auditA11y } from './core/a11yAudit';
+export { announce } from './router/router';
+export { nativeFeelCss } from './styles/nativeFeelCss';

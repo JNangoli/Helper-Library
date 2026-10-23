@@ -1,0 +1,361 @@
+/* native-compute: native-feel CSS. Added automatically by the library at startup; importing this file
+ * yourself is optional (useful with server rendering, to have it in the first paint).
+ *
+ * Everything is inside @layer native-compute, so ANY style you write wins over it without
+ * specificity fights. Global defaults are deliberately few and safe; the rest are opt-in nc-* classes.
+ *
+ * Works in current Chrome, Edge, Firefox and Safari. A few extras (marked "enhancement") only run
+ * where supported; elsewhere they are simply skipped, never broken.
+ */
+
+@layer native-compute {
+  /* Marker: lets the library see this CSS is already on the page (so it isn't added twice). */
+  :root { --nc-native-feel: 1; }
+
+  /* ---- Safe global defaults ------------------------------------------------------------ */
+
+  html {
+    -webkit-tap-highlight-color: transparent; /* no grey flash on tap */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%; /* no font inflation when rotating a phone */
+  }
+  /* No double-tap-zoom delay on controls. */
+  a, button, input, select, textarea, label, summary, [role='button'], [role='tab'] {
+    touch-action: manipulation;
+  }
+  /* Anchor jumps land below a sticky header (set --nc-header-height on :root). */
+  :target { scroll-margin-top: var(--nc-header-height, 0px); }
+
+  /* ---- App shell ---------------------------------------------------------------------- */
+
+  /* Full-height screens that fit the visible area on phones (100vh is too tall under the
+     address bar; dvh follows it as it shows and hides). */
+  .nc-fill { min-height: 100vh; min-height: calc(var(--nc-vh, 1vh) * 100); min-height: 100dvh; }
+  .nc-fill-exact { height: 100vh; height: calc(var(--nc-vh, 1vh) * 100); height: 100dvh; }
+
+  /* Room for notches, rounded corners and the home bar.
+     Needs <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">. */
+  .nc-safe {
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px);
+  }
+  .nc-safe-bottom { padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--nc-gap, 0px)); }
+
+  /* A frosted sticky header or tab bar, like native nav bars. */
+  .nc-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, Canvas 78%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    backdrop-filter: saturate(180%) blur(16px);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .nc-bar { background: Canvas; }
+  }
+  .nc-bar-bottom { top: auto; bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* The page doesn't shift sideways when a scrollbar appears or disappears. */
+  .nc-stable-scrollbar { scrollbar-gutter: stable; }
+
+  /* Take over the browser's pull-to-refresh (e.g. if your app has its own). */
+  .nc-no-pull-refresh { overscroll-behavior-y: contain; }
+
+  /* ---- Touch & press ------------------------------------------------------------------ */
+
+  /* Pressed feedback like native buttons. */
+  .nc-press { transition: transform 120ms ease-out, opacity 120ms ease-out; }
+  .nc-press:active { transform: scale(0.97); opacity: 0.85; }
+
+  /* App UI (buttons, tab bars, icons): long-press doesn't select text or open the iOS image menu. */
+  .nc-ui { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+  /* Hover effects only on devices that really hover, so they don't "stick" after a tap on phones.
+     Use: .nc-hover:hover is only active on mouse/trackpad devices. */
+  @media (hover: hover) and (pointer: fine) {
+    .nc-hover { transition: background-color 120ms ease-out; }
+    .nc-hover:hover { background-color: color-mix(in srgb, currentColor 8%, transparent); }
+  }
+
+  /* Hidden visually, still read by screen readers. */
+  .nc-sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  /* "Skip to content" link added by <Router>: appears when reached with Tab. */
+  .nc-skip {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    left: 8px;
+    z-index: 2147483647;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: Canvas;
+    background: CanvasText;
+    transform: translateY(-200%);
+  }
+  .nc-skip:focus { transform: none; }
+  /* Headings the router focuses after navigation: no ring for mouse/touch users. */
+  [data-nc-focus-target]:focus:not(:focus-visible) { outline: none; }
+
+  /* Visible focus ring only for keyboard users. */
+  .nc-focus:focus-visible { outline: 2px solid AccentColor; outline-offset: 2px; }
+
+  /* ---- Scrolling ---------------------------------------------------------------------- */
+
+  /* Inner scroll areas that don't drag the whole page when they reach the end. */
+  .nc-scroll { overflow: auto; overscroll-behavior: contain; }
+
+  /* Horizontal paging, like native carousels and photo strips. Children snap into place.
+     Add .nc-snap-one to stop at every item even on a fast swipe. */
+  .nc-snap-x {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .nc-snap-x::-webkit-scrollbar { display: none; }
+  .nc-snap-x > * { flex: 0 0 auto; scroll-snap-align: start; }
+  .nc-snap-x.nc-center > * { scroll-snap-align: center; }
+  .nc-snap-one > * { scroll-snap-stop: always; }
+
+  /* Vertical paging: full-screen sections like a stories or reels feed. */
+  .nc-snap-y {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-snap-type: y mandatory;
+    height: 100vh;
+    height: calc(var(--nc-vh, 1vh) * 100);
+    height: 100dvh;
+  }
+  .nc-snap-y > * {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    min-height: 100vh;
+    min-height: calc(var(--nc-vh, 1vh) * 100);
+    min-height: 100dvh;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .nc-smooth { scroll-behavior: smooth; }
+  }
+
+  /* ---- Layout that adapts to its container, not the window ---------------------------- */
+
+  /* A component that rearranges itself by its own width (sidebar, card, panel):
+     .nc-container on the wrapper, then @container (min-width: 480px) { ... } in your CSS. */
+  .nc-container { container-type: inline-size; }
+
+  /* Responsive grid with no media queries. --nc-min sets the smallest column width. */
+  .nc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(var(--nc-min, 160px), 100%), 1fr));
+    gap: var(--nc-gap, 12px);
+  }
+
+  /* ---- Text --------------------------------------------------------------------------- */
+
+  /* Headings break into even lines; paragraphs avoid a lonely last word (where supported). */
+  .nc-balance { text-wrap: balance; }
+  .nc-pretty { text-wrap: pretty; }
+  /* Numbers that don't jiggle as they change (timers, prices, tables). */
+  .nc-tabular { font-variant-numeric: tabular-nums; }
+  /* The device's own UI font. */
+  .nc-system-font { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+
+  /* ---- Colours ------------------------------------------------------------------------ */
+
+  /* Follow the device's light/dark setting; form controls and scrollbars match. */
+  .nc-auto-theme { color-scheme: light dark; }
+  /* Brand-coloured checkboxes, radios, sliders and progress bars: set --nc-accent. */
+  .nc-accent { accent-color: var(--nc-accent, AccentColor); }
+
+  /* ---- Smooth open/close without JavaScript animation libraries ----------------------- */
+
+  /* Expand/collapse to the content's natural height: toggle [data-open] on .nc-collapse.
+     (Animating grid rows works everywhere, unlike animating height: auto.) */
+  .nc-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .nc-collapse[data-open] { grid-template-rows: 1fr; }
+  .nc-collapse > * { overflow: hidden; min-height: 0; }
+
+  /* Native <dialog> and [popover] menus that fade/scale in and out. @starting-style animates
+     the opening; allow-discrete keeps them visible while closing (where supported). */
+  .nc-pop {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 160ms ease-out, transform 160ms ease-out, display 160ms allow-discrete, overlay 160ms allow-discrete;
+  }
+  .nc-pop:not([open], :popover-open) { opacity: 0; transform: scale(0.96); }
+  @starting-style {
+    .nc-pop[open], .nc-pop:popover-open { opacity: 0; transform: scale(0.96); }
+  }
+
+  /* ---- <Sheet> (see react/native.jsx) -------------------------------------------------- */
+
+  .nc-sheet {
+    margin: auto auto 0;
+    width: min(100%, 640px);
+    max-width: 100%;
+    max-height: 92dvh;
+    border: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 0 16px max(16px, env(safe-area-inset-bottom, 0px));
+    overflow: auto;
+    overscroll-behavior: contain;
+    color: CanvasText;
+    background: Canvas;
+    box-shadow: 0 -8px 32px rgb(0 0 0 / 0.18);
+    transform: translateY(0);
+    transition: transform 280ms cubic-bezier(0.2, 0, 0, 1), display 280ms allow-discrete, overlay 280ms allow-discrete;
+  }
+  .nc-sheet:not([open]) { transform: translateY(100%); }
+  @starting-style {
+    .nc-sheet[open] { transform: translateY(100%); }
+  }
+  .nc-sheet.nc-dragging { transition: none; }
+  .nc-sheet::backdrop {
+    background: rgb(0 0 0 / 0.4);
+    transition: background-color 280ms, display 280ms allow-discrete, overlay 280ms allow-discrete;
+  }
+  .nc-sheet:not([open])::backdrop { background: rgb(0 0 0 / 0); }
+  @starting-style {
+    .nc-sheet[open]::backdrop { background: rgb(0 0 0 / 0); }
+  }
+  .nc-sheet-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: 44px;
+    margin: 0 -16px;
+    background: inherit;
+  }
+  .nc-sheet-handle {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    cursor: grab;
+    touch-action: none;
+  }
+  .nc-sheet-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    font: inherit;
+    font-size: 20px;
+    line-height: 1;
+    color: inherit;
+    background: color-mix(in srgb, CanvasText 8%, transparent);
+    cursor: pointer;
+  }
+  .nc-sheet-close::after { content: ''; position: absolute; inset: -6px; } /* 44px touch target */
+  /* Closing animation where the browser can't animate <dialog> closing itself (the library adds this). */
+  .nc-sheet[data-nc-closing] { transform: translateY(100%); }
+  .nc-sheet-handle::before {
+    content: '';
+    width: 40px;
+    height: 5px;
+    border-radius: 3px;
+    background: color-mix(in srgb, CanvasText 25%, transparent);
+  }
+  /* The page behind doesn't scroll while a sheet is open. */
+  html:has(.nc-sheet[open]) { overflow: hidden; }
+
+  /* ---- <Carousel> (see react/native.jsx) ----------------------------------------------- */
+
+  .nc-carousel { position: relative; }
+  .nc-carousel-track { gap: var(--nc-gap, 12px); scroll-padding-inline: var(--nc-peek, 0px); padding-inline: var(--nc-peek, 0px); }
+  .nc-carousel-track > * { width: 100%; }
+  .nc-carousel-dots { display: flex; justify-content: center; gap: 6px; padding: 8px; }
+  .nc-carousel-dots button {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 30%, transparent);
+    transition: width 200ms ease-out, background-color 200ms;
+  }
+  .nc-carousel-dots button { position: relative; }
+  .nc-carousel-dots button::after { content: ''; position: absolute; inset: -8px -4px; } /* 24px+ touch target */
+  .nc-carousel-dots button[aria-current='true'] { width: 20px; background: currentColor; }
+
+  /* ---- Screen transitions (started by <Router>) ---------------------------------------- */
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  html[data-nav-direction='forward']::view-transition-old(root) { animation-name: nc-out-left; }
+  html[data-nav-direction='forward']::view-transition-new(root) { animation-name: nc-in-right; }
+  html[data-nav-direction='back']::view-transition-old(root) { animation-name: nc-out-right; }
+  html[data-nav-direction='back']::view-transition-new(root) { animation-name: nc-in-left; }
+  /* A header that stays still while screens slide. */
+  .nc-static { view-transition-name: nc-static; }
+
+  /* ---- Enhancement: fade/slide items in as they scroll into view ---------------------- */
+  /* Scroll-driven animations (Chrome, Edge, Safari 26+). Elsewhere items just appear. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .nc-reveal {
+        animation: nc-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 60%;
+      }
+    }
+  }
+
+  /* Same effect elsewhere: the library adds data-nc-reveal="observer" and marks items as they appear. */
+  html[data-nc-reveal='observer'] .nc-reveal:not([data-nc-revealed]) { opacity: 0; transform: translateY(24px); }
+  html[data-nc-reveal='observer'] .nc-reveal { transition: opacity 400ms ease-out, transform 400ms ease-out; }
+
+  /* ---- Lite mode: added automatically on low-end devices, data-saver, or when frames drop ---- */
+  html[data-nc-lite] .nc-bar { -webkit-backdrop-filter: none; backdrop-filter: none; background: Canvas; }
+  html[data-nc-lite] .nc-sheet { box-shadow: none; }
+  html[data-nc-lite] .nc-reveal { animation: none !important; transition: none !important; }
+  html[data-nc-lite]::view-transition-old(root),
+  html[data-nc-lite]::view-transition-new(root) { animation-duration: 120ms; }
+
+  /* ---- High-contrast modes (e.g. Windows): keep shapes visible ----------------------------- */
+  @media (forced-colors: active) {
+    .nc-carousel-dots button { border: 1px solid ButtonText; }
+    .nc-carousel-dots button[aria-current='true'] { background: Highlight; }
+    .nc-sheet-handle::before { background: ButtonText; }
+    .nc-sheet { border: 1px solid CanvasText; }
+  }
+
+  /* ---- Reduced motion: everything above calms down -------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) { animation: none !important; }
+    .nc-press, .nc-collapse, .nc-pop, .nc-sheet, .nc-sheet::backdrop, .nc-carousel-dots button, .nc-reveal { transition: none; }
+    .nc-press:active { transform: none; }
+  }
+}
+
+@keyframes nc-out-left { to { transform: translateX(-12%); opacity: 0; } }
+@keyframes nc-in-right { from { transform: translateX(12%); opacity: 0; } }
+@keyframes nc-out-right { to { transform: translateX(12%); opacity: 0; } }
+@keyframes nc-in-left { from { transform: translateX(-12%); opacity: 0; } }
+@keyframes nc-reveal { from { opacity: 0; transform: translateY(24px); } }

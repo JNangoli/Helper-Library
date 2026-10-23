@@ -9,6 +9,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { useElementSize, useNearScreen } from '../react/hooks';
 
+// Invisible text over each page: screen readers can read it, and users can select and copy it.
+const TEXT_LAYER_CSS = `
+.nc-pdf-text { position: absolute; inset: 0; overflow: hidden; line-height: 1; text-align: initial;
+  -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; }
+.nc-pdf-text :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.nc-pdf-text ::selection { background: rgb(0 90 255 / 0.25); }
+.nc-pdf-text .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; }`;
+
+function injectTextLayerCss() {
+  if (document.getElementById('nc-pdf-text-css')) return;
+  const style = document.createElement('style');
+  style.id = 'nc-pdf-text-css';
+  style.textContent = TEXT_LAYER_CSS;
+  document.head.appendChild(style);
+}
+
 let pdfjsPromise;
 function loadPdfJs() {
   pdfjsPromise ??= import('pdfjs-dist/legacy/build/pdf').then((pdfjs) => {
@@ -61,14 +77,17 @@ export function usePdf(source) {
 export function PdfPage({ doc, pageNumber, width, aspect = 1.414, className, style }) {
   const [wrapRef, near] = useNearScreen('1200px 0px');
   const canvasRef = useRef(null);
+  const textRef = useRef(null);
   const [pageAspect, setPageAspect] = useState(aspect);
   const [rendered, setRendered] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const textLayer = textRef.current;
     if (!near || !doc || !width || !canvas) return;
     let alive = true;
     let task;
+    let textTask;
     (async () => {
       const page = await doc.getPage(pageNumber);
       if (!alive) return;
@@ -80,13 +99,32 @@ export function PdfPage({ doc, pageNumber, width, aspect = 1.414, className, sty
       canvas.height = Math.floor(viewport.height);
       task = page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport });
       await task.promise;
-      if (alive) setRendered(true);
+      if (!alive) return;
+      setRendered(true);
+      // Text layer at CSS-pixel scale, positioned exactly over the drawn text.
+      try {
+        injectTextLayerCss();
+        const pdfjs = await loadPdfJs();
+        const cssViewport = page.getViewport({ scale: width / base.width });
+        textLayer.replaceChildren();
+        textLayer.style.setProperty('--scale-factor', String(cssViewport.scale));
+        textTask = pdfjs.renderTextLayer({
+          textContentSource: page.streamTextContent(),
+          container: textLayer,
+          viewport: cssViewport,
+        });
+        await textTask.promise;
+      } catch (err) {
+        if (err?.name !== 'AbortException') console.warn('PDF text layer unavailable:', err); // the page still shows
+      }
     })().catch((err) => {
       if (err?.name !== 'RenderingCancelledException') console.error(err);
     });
     return () => {
       alive = false;
       task?.cancel();
+      textTask?.cancel();
+      textLayer?.replaceChildren();
       canvas.width = 0; // release the bitmap memory of pages far off screen
       canvas.height = 0;
       setRendered(false);
@@ -98,14 +136,16 @@ export function PdfPage({ doc, pageNumber, width, aspect = 1.414, className, sty
       ref={wrapRef}
       className={className}
       data-page={pageNumber}
+      role="group"
+      aria-label={`Page ${pageNumber}`}
       style={{ width, aspectRatio: `1 / ${pageAspect}`, background: '#fff', position: 'relative', ...style }}
     >
       <canvas
         ref={canvasRef}
-        role="img"
-        aria-label={`Page ${pageNumber}`}
+        aria-hidden="true"
         style={{ width: '100%', height: '100%', display: 'block', opacity: rendered ? 1 : 0 }}
       />
+      <div ref={textRef} className="nc-pdf-text" />
     </div>
   );
 }

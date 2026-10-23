@@ -7,7 +7,7 @@
 //   * untested backends that might be competitive get tried once, so it can learn them
 //   * if a backend fails (GPU lost, worker crash) the next best one runs instead
 //   * learned timings are saved per browser, so the next visit starts smart
-import { OPS } from './ops';
+import { OPS, registerBuiltinOps } from './ops';
 import { Memo, keyOf } from '../core/memo';
 import { isAbort } from '../core/util';
 
@@ -76,6 +76,7 @@ const failure = (err) => (err instanceof Error ? err.name : '');
 
 export class Engine {
   constructor({ pool, getGpu, getCaps }) {
+    registerBuiltinOps();
     this.pool = pool;
     this.getGpu = getGpu;
     this.getCaps = getCaps;
